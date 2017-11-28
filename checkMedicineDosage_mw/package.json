@@ -1,0 +1,19 @@
+{
+  "name": "lp-alexa",
+  "version": "1.0.0",
+  "description": "test for lp lex integration",
+  "main": "checkMedicineDosage.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Mark Wells",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/npm/npm.git"
+  },
+  "dependencies": {
+    "request": "^2.83.0"
+  },
+  "devDependencies": {}
+}
