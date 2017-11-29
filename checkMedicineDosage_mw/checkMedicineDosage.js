@@ -1,6 +1,6 @@
 'use strict';
 
-var request = require("request");
+//var request = require("request");
 var defaultPatientId = "1234567";
 var defaultBearerToken = "abcdef";
 
@@ -159,18 +159,18 @@ function checkDosage(intentRequest, callback) {
     const medicineType = intentRequest.currentIntent.slots.medicineType;
     const dosageTime = intentRequest.currentIntent.slots.dosageTime;
     const source = intentRequest.invocationSource;
+    const slots = intentRequest.currentIntent.slots;
     const outputSessionAttributes = intentRequest.sessionAttributes || {};
-    if(intentRequest.currentIntent.slots.assistanceConfirmation){
-        if(intentRequest.currentIntent.slots.assistanceConfirmation=="yes"){
-            callback(close(intentRequest.sessionAttributes,'Fulfilled',intentRequest.currentIntent.slots.assistanceConfirmation));
+    if(slots.assistanceConfirmation){
+        if(slots.assistanceConfirmation=="yes"){
+            callback(close(intentRequest.sessionAttributes,'Fulfilled',slots.assistanceConfirmation));
         }
         else{
-            callback(close(intentRequest.sessionAttributes,'Fulfilled',intentRequest.currentIntent.slots.assistanceConfirmation));
+            callback(close(intentRequest.sessionAttributes,'Fulfilled',slots.assistanceConfirmation));
         }
     }
     if (source === 'DialogCodeHook') {
         // Perform basic validation on the supplied input slots.  Use the elicitSlot dialog action to re-prompt for the first violation detected.
-        const slots = intentRequest.currentIntent.slots;
         const validationResult = validateCheckDosage(medicineType, dosageTime);
         if (!validationResult.isValid) {
             console.log("state check 1");
@@ -181,7 +181,7 @@ function checkDosage(intentRequest, callback) {
         }
             if(outputSessionAttributes.medicineName && !medicineType){
                 if(medicineType){
-                    outputSessionAttributes.medicineName=medicineType
+                    outputSessionAttributes.medicineName=medicineType;
                 }
                 callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled',outputSessionAttributes.medicineName,dosageTime,slots,intentRequest.currentIntent.name));
                 return;
@@ -198,7 +198,6 @@ function checkDosage(intentRequest, callback) {
     // If the caller is supplying the patientId and the bearer token, or we have them hard
     // coded as defaults in this file, then we try to call the actual LillyPlus dosages
     // services. If not, we revert to the hard-coded responses in the confirmIntent method.
-    const slots = intentRequest.currentIntent.slots;
     var patientId = slots.pcpPatientId;
     var bearerToken = slots.bearerToken;
     // if ("pcpPatientId" in slots) {
@@ -235,46 +234,46 @@ function checkDosage(intentRequest, callback) {
 // medication passed in the the medicineType slot)
 function getDosageInformation(intentRequest, pcpPatientId, vcProductId, bearerToken) {
   console.log("In getDosageInformation()");
-  var urlString = `https://gcsp-vc-dosage-sched-sim.herokuapp.com/patient/product/dosage?pcpPatientId=${pcpPatientId}&vcProductId=${vcProductId}`;
-  const options = {
-    url: `${urlString}`,
-    method: 'GET',
-    headers: {
-        'Accept': 'application/json',
-        'Accept-Charset': 'utf-8'
-    },
-    auth: {
-      'bearer': `${bearerToken}`
+
+  var fulfillmentState = "Fulfilled";
+  var sessionAttributes = intentRequest.sessionAttributes;
+  var http = require("https");
+
+  var options = {
+    "method": "GET",
+    "hostname": "gateway-np.lillyapi.com",
+    "path": "dev/virtualClaudia/v3/patient/product/dosage?pcpPatientId=1283578&vcProductId=taltz",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Charset": "utf-8",
+      "X-API-Key": "l7xxfff2da3a70a34a60bb32d2bcf2fd0791",
+      "Requestor": "VCClient",
+      "Authorization": "Bearer 00D0S0000000Wcq!AR8AQGGOt7MOGpStFjwx4mRQ7q6xsxDDZsfumcwUQQNNHUn4iqoWz2facZeEp1CnKLYB90mvihz_HG9GzmtBONdAwYtfn0lt"
     }
   };
-  console.log("about to call the request method");
-  request(options, function (error, res, body) {
-    console.log("error="+error);
-    var responseMessage = "There was a problem accessing LillyPlus to get your dosage information."
-    if (!error && response.statusCode == 200) {
-      console.log("should not be in here");
-      var data = JSON.parse(res.body);
-      var next_dosage_date = data.payload.dosageSetupDate;
-      const slots = intentRequest.currentIntent.slots;
-      const intentName = intentRequest.currentIntent.name;
 
-      // Convert the date to a human format
-      var d = new Date(0);
-      d.setUTCSeconds(next_dosage_date);
-      responseMessage = "Your next dosage is scheduled for " + d;
-    }
-    console.log("about to call the callback");
-    callback({
-        sessionAttributes,
-        dialogAction: {
-            type: 'ConfirmIntent',
-            intentName,
-            slots,
-            // fulfillmentState,
-            responseMessage
-        }
-      });
+  var req = http.request(options, function (res) {
+    var chunks = [];
+
+    res.on("data", function (chunk) {
+      chunks.push(chunk);
     });
+
+    res.on("end", function () {
+      message = { contentType: 'PlainText', content: `There was a problem accessing LillyPlus services to get your dosage information.` };
+      console.log("in error block");
+      callback(responseObject = {
+          sessionAttributes,
+          dialogAction: {
+              type: 'Close',
+              fulfillmentState,
+              message
+          }
+      });
+   });
+ });
+
+  req.end();
 }
 
 function checkFAQIntent(intentRequest, callback) {

@@ -216,7 +216,7 @@ function checkDosage(intentRequest, callback) {
     if (bearerToken == null || patientId == null) {
         callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled', medicineName, dosageTime, intentRequest.currentIntent.slots, intentRequest.currentIntent.name));
     } else {
-        callback(getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, patientId, medicineName, bearerToken));
+        getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, callback);
     }
 
 }
@@ -232,25 +232,32 @@ function checkDosage(intentRequest, callback) {
 // it needs to be cleaned up to provide a meaningful response to the user (one of which would be
 // that he/she is not logged in - others would relate to not being enrolled the program for the
 // medication passed in the the medicineType slot)
-function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest, medicineName, dosageTime, slots, intentName) {
-    var message = { contentType: 'PlainText', content: `There was a problem accessing LillyPlus services to get your dosage information.` };
+function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest, callback) {
+
+    var responseObject = null;
     console.log("About to call request method.");
     var options = {
         method: "GET",
-        uri: `https://gateway-np.lillyapi.com:8443/dev/virtualClaudia/v3/patient/product/dosage?pcpPatientId=1283578&vcProductId=taltz`,
+        uri: `https://gateway-np.lillyapi.com:8443/sim/virtualClaudia/v2/patient/product/dosage?pcpPatientId=1006865&vcProductId=taltz`,
         headers: {
             'Accept': 'application/json',
             'Accept-Charset': 'utf-8',
-            'X-API-Key': 'l7xxfff2da3a70a34a60bb32d2bcf2fd0791',
+            'X-API-Key': 'l7xx2e4f44efe5034a4aa27c31e8495f4a9a',
             'Requestor': 'VCClient',
-            'Authorization': 'Bearer 00D0S0000000Wcq!AR8AQGGOt7MOGpStFjwx4mRQ7q6xsxDDZsfumcwUQQNNHUn4iqoWz2facZeEp1CnKLYB90mvihz_HG9GzmtBONdAwYtfn0lt'
+            'Authorization': 'Bearer 00DP00000002vUC!ARIAQJ8ng_x2idhjMMPxLHMbC1XH9nVKp6uVxC6xMN17Sium9ECc.vkWXqkO35zKBU8Hq2XXDtzJp7OqkKB9J8YXjnZgCpyk'
         }
     };
 
     rp(options)
         .then(function(parsedBody) {
-            var data = JSON.parse(response.body);
-            var next_dosage_date = data.payload.dosageProfiles[0].dosages[0].dosageDate;
+          console.log("In then block");
+          console.log(parsedBody);
+            //var data = JSON.parse(response.body);
+            console.log("In then block 1");
+            var nextDosageIndex = parsedBody.payload.nextDosageNumber;
+            var next_dosage_date = parsedBody.payload.dosages[nextDosageIndex].dosageTakenDate;
+            //var next_dosage_date = parsedBody.payload.dosageProfiles[0].dosages[0].dosageDate;
+            console.log("In then block 2");
             const slots = intentRequest.currentIntent.slots;
             const intentName = intentRequest.currentIntent.name;
             console.log("Response Date: " + next_dosage_date);
@@ -258,29 +265,24 @@ function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest
             var date = new Date(0);
             date.setUTCSeconds(next_dosage_date);
             message = { contentType: 'PlainText', content: `Your next dosage is scheduled for ${date}.` };
-            return {
-                sessionAttributes,
-                dialogAction: {
-                    type: 'Close',
-                    fulfillmentState,
-                    message
-                }
-            };
         })
         .catch(function(err) {
-            message = { contentType: 'PlainText', content: `There was a problem accessing LillyPlus services to get your dosage information.` };
-            return {
+            var message = { contentType: 'PlainText', content: `There was a problem accessing LillyPlus services to get your dosage information.` };
+            console.log("in error block - setting response object.");
+            console.log(err);
+            callback({
                 sessionAttributes,
                 dialogAction: {
                     type: 'Close',
                     fulfillmentState,
                     message
                 }
-            };
+            });
         });
 
-    console.log("Response message: " + message.content);
-    console.log("fullfillment state: " + fulfillmentState);
+    // let end = Date.now() + 5000;
+    // while (Date.now() < end);
+    // console.log("5 second timeout");
 }
 
 function checkFAQIntent(intentRequest, callback) {
