@@ -3,14 +3,14 @@
 var request = require("request");
 var rp = require('request-promise');
 
-let apiKeys = {
+var apiKeys = {
   'dev': 'l7xxfff2da3a70a34a60bb32d2bcf2fd0791',
   'tst': 'l7xxe8e2440d66d34eb4807c1db6f6305990',
   'sim': 'l7xx2e4f44efe5034a4aa27c31e8495f4a9a'
 };
-var defaultHerokuEnv = "sim"
-var defaultPatientId = "1298965";
-var defaultBearerToken = "00DP00000002vUC!ARIAQAtII_NkNX_sTM48gHuCsV5glXy_5UVQ46GNpEJ9J6YHNL2Lem1IzIKi2XeENxstMIjZcBKeoOs6rhXztm_cG8vgGl_W";
+var defaultHerokuEnv = "sim";
+var defaultPatientId = "1008895";
+var defaultBearerToken = "00DP00000002vUC!ARIAQGpa8_MNjLkruWhjuuA4gVEFHyNwsXZYjcVXP7vSWpaiuv0aowBWha9K5Ye8Kaf.0EppIlQhGlVl_paMz2o4tTKDO5H_";
 //var defaultPatientId = null;
 //var defaultBearerToken = null;
 
@@ -30,36 +30,36 @@ function elicitSlot(sessionAttributes, intentName, slots, slotToElicit, message)
 function confirmIntent(sessionAttributes, fulfillmentState, medicineName, dosageTime, slots, intentName) {
     var message = { contentType: 'PlainText', content: `Sorry ${medicineName} is not available in my database.` };
     if (dosageTime) {
-        if (dosageTime.toLowerCase() == 'next') {
-            if (medicineName.toLowerCase() == 'taltz') {
+        if (dosageTime.toLowerCase() === 'next') {
+            if (medicineName.toLowerCase() === 'taltz') {
                 message.content = `${medicineName} should be taken at 5pm`;
             }
-            if (medicineName.toLowerCase() == 'krokan') {
+            if (medicineName.toLowerCase() === 'krokan') {
                 message.content = `${medicineName} should be taken at 10pm.`;
             }
-            if (medicineName.toLowerCase() == 'zinetac') {
+            if (medicineName.toLowerCase() === 'zinetac') {
                 message.content = `${medicineName} should be taken taken at 11pm.`;
             }
         } else {
-            if (medicineName.toLowerCase() == 'taltz') {
+            if (medicineName.toLowerCase() === 'taltz') {
                 message.content = `${medicineName} was taken at 5am.`;
             }
-            if (medicineName.toLowerCase() == 'krokan') {
+            if (medicineName.toLowerCase() === 'krokan') {
                 message.content = `${medicineName} was taken at 3am.`;
             }
-            if (medicineName.toLowerCase() == 'zinetac') {
+            if (medicineName.toLowerCase() === 'zinetac') {
                 message.content = `${medicineName} was taken at 2am`;
             }
         }
 
     } else {
-        if (medicineName.toLowerCase() == 'taltz') {
+        if (medicineName.toLowerCase() === 'taltz') {
             message.content = `${medicineName} should be taken 2 times a day. Were you happy with my assistance.`;
         }
-        if (medicineName.toLowerCase() == 'krokan') {
+        if (medicineName.toLowerCase() === 'krokan') {
             message.content = `${medicineName} should be taken 5 times a day. Were you happy with my assistance.`;
         }
-        if (medicineName.toLowerCase() == 'zinetac') {
+        if (medicineName.toLowerCase() === 'zinetac') {
             message.content = `${medicineName} should be taken 1 time a day. Were you happy with my assistance.`;
         }
     }
@@ -78,9 +78,9 @@ function confirmIntent(sessionAttributes, fulfillmentState, medicineName, dosage
 function close(sessionAttributes, fulfillmentState, assistanceReply) {
     var message = { contentType: 'PlainText', content: `Sorry I did not understand` };
 
-    if (assistanceReply.toLowerCase() == 'yes') {
+    if (assistanceReply.toLowerCase() === 'yes') {
         message.content = `Happy to help!`;
-    } else if (assistanceReply.toLowerCase() == 'no') {
+    } else if (assistanceReply.toLowerCase() === 'no') {
         message.content = `Please contact Lily assistance at +1-800-545-6962 .`;
     } else {
         //do nothing
@@ -126,7 +126,7 @@ function isValidDate(date) {
 }
 
 function buildValidationResult(isValid, violatedSlot, messageContent) {
-    if (messageContent == null) {
+    if (messageContent === null) {
         return {
             isValid,
             violatedSlot
@@ -163,21 +163,21 @@ function validateCheckDosage(medicineType, dosageTime) {
  *
  */
 function checkDosage(intentRequest, callback) {
-    const medicineType = intentRequest.currentIntent.slots.medicineType;
-    const dosageTime = intentRequest.currentIntent.slots.dosageTime;
+    const slots = intentRequest.currentIntent.slots;
+    const medicineType = slots.medicineType;
+    const dosageTime = slots.dosageTime;
 
     const source = intentRequest.invocationSource;
     const outputSessionAttributes = intentRequest.sessionAttributes || {};
-    if (intentRequest.currentIntent.slots.assistanceConfirmation) {
-        if (intentRequest.currentIntent.slots.assistanceConfirmation == "yes") {
-            callback(close(intentRequest.sessionAttributes, 'Fulfilled', intentRequest.currentIntent.slots.assistanceConfirmation));
+    if (slots.assistanceConfirmation) {
+        if (slots.assistanceConfirmation === "yes") {
+            callback(close(intentRequest.sessionAttributes, 'Fulfilled', slots.assistanceConfirmation));
         } else {
-            callback(close(intentRequest.sessionAttributes, 'Fulfilled', intentRequest.currentIntent.slots.assistanceConfirmation));
+            callback(close(intentRequest.sessionAttributes, 'Fulfilled', slots.assistanceConfirmation));
         }
     }
     if (source === 'DialogCodeHook') {
         // Perform basic validation on the supplied input slots.  Use the elicitSlot dialog action to re-prompt for the first violation detected.
-        const slots = intentRequest.currentIntent.slots;
         const validationResult = validateCheckDosage(medicineType, dosageTime);
         if (!validationResult.isValid) {
             console.log("state check 1");
@@ -188,7 +188,7 @@ function checkDosage(intentRequest, callback) {
         }
         if (outputSessionAttributes.medicineName && !medicineType) {
             if (medicineType) {
-                outputSessionAttributes.medicineName = medicineType
+                outputSessionAttributes.medicineName = medicineType;
             }
             callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled', outputSessionAttributes.medicineName, dosageTime, slots, intentRequest.currentIntent.name));
             return;
@@ -205,7 +205,7 @@ function checkDosage(intentRequest, callback) {
     // If the caller is supplying the patientId and the bearer token, or we have them hard
     // coded as defaults in this file, then we try to call the actual LillyPlus dosages
     // services. If not, we revert to the hard-coded responses in the confirmIntent method.
-    const slots = intentRequest.currentIntent.slots;
+
     var herokuEnv = null;
     var apiKey = null;
     var patientId = null;
@@ -214,26 +214,32 @@ function checkDosage(intentRequest, callback) {
     if ("herokuEnv" in slots) {
       herokuEnv = slots.herokuEnv;
     }
-    if (herokuEnv !== undefined && herokuEnv !== null && herokuEnv != '' && defaultHerokuEnv !== null) {
-      apiKey = apiKeys.defaultHerokuEnv || null;
+    if (herokuEnv === undefined || herokuEnv === null || herokuEnv !== '') {
+      herokuEnv = defaultHerokuEnv;
     }
-    if
+    if (herokuEnv !== null) {
+      apiKey = apiKeys[herokuEnv] || null;
+    }
     if ("pcpPatientId" in slots) {
       patientId = slots.pcpPatientId;
     }
     if ("bearerToken" in slots) {
       bearerToken = slots.bearerToken;
     }
-    if (patientId === undefined || patientId === null || patientId == '') {
+    if (patientId === undefined || patientId === null || patientId === '') {
         patientId = defaultPatientId;
     }
-    if (bearerToken === undefined || bearerToken === null || bearerToken == '') {
+    if (bearerToken === undefined || bearerToken === null || bearerToken === '') {
         bearerToken = defaultBearerToken;
     }
-    if (bearerToken == null || patientId == null || apiKey == null) {
+    console.log(`herokuEnv=${herokuEnv}
+      apiKey=${apiKey}
+      patientId=${patientId}
+      bearerToken=${bearerToken}`);
+    if (bearerToken === null || patientId === null || apiKey === null) {
         callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled', medicineName, dosageTime, intentRequest.currentIntent.slots, intentRequest.currentIntent.name));
     } else {
-        getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, callback, apiKey, patientId, bearerToken, medicineName, dosageTime);
+        getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, callback, herokuEnv, apiKey, patientId, bearerToken, medicineName, dosageTime);
     }
 
 }
