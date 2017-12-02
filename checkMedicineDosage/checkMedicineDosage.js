@@ -2,8 +2,15 @@
 
 var request = require("request");
 var rp = require('request-promise');
-var defaultPatientId = "123456";
-var defaultBearerToken = "abcdef";
+
+let apiKeys = {
+  'dev': 'l7xxfff2da3a70a34a60bb32d2bcf2fd0791',
+  'tst': 'l7xxe8e2440d66d34eb4807c1db6f6305990',
+  'sim': 'l7xx2e4f44efe5034a4aa27c31e8495f4a9a'
+};
+var defaultHerokuEnv = "sim"
+var defaultPatientId = "1298965";
+var defaultBearerToken = "00DP00000002vUC!ARIAQAtII_NkNX_sTM48gHuCsV5glXy_5UVQ46GNpEJ9J6YHNL2Lem1IzIKi2XeENxstMIjZcBKeoOs6rhXztm_cG8vgGl_W";
 //var defaultPatientId = null;
 //var defaultBearerToken = null;
 
@@ -136,7 +143,7 @@ function validateCheckDosage(medicineType, dosageTime) {
     const medicineTypes = ['taltz', 'krokan', 'zinetac'];
     const dosageTimes = ['next', 'last'];
     if (medicineType && medicineTypes.indexOf(medicineType.toLowerCase()) === -1) {
-        return buildValidationResult(false, 'medicineType', `I dont have ${medicineType} listed in my medicine section, may be you are looking for Taltz.`);
+        return buildValidationResult(false, 'medicineType', `I dont have ${medicineType} listed in my medicine section, maybe you are looking for Taltz.`);
     }
     if (dosageTime && dosageTimes.indexOf(dosageTime.toLowerCase()) === -1) {
         return buildValidationResult(false, 'medicineType', `I dont have understand what you are`);
@@ -158,6 +165,7 @@ function validateCheckDosage(medicineType, dosageTime) {
 function checkDosage(intentRequest, callback) {
     const medicineType = intentRequest.currentIntent.slots.medicineType;
     const dosageTime = intentRequest.currentIntent.slots.dosageTime;
+
     const source = intentRequest.invocationSource;
     const outputSessionAttributes = intentRequest.sessionAttributes || {};
     if (intentRequest.currentIntent.slots.assistanceConfirmation) {
@@ -198,25 +206,34 @@ function checkDosage(intentRequest, callback) {
     // coded as defaults in this file, then we try to call the actual LillyPlus dosages
     // services. If not, we revert to the hard-coded responses in the confirmIntent method.
     const slots = intentRequest.currentIntent.slots;
-    var patientId = slots.pcpPatientId;
-    //var bearerToken = slots.bearerToken;
-    var bearerToken = 'Bearer 00D0S0000000Wcq!AR8AQGGOt7MOGpStFjwx4mRQ7q6xsxDDZsfumcwUQQNNHUn4iqoWz2facZeEp1CnKLYB90mvihz_HG9GzmtBONdAwYtfn0lt';
-    // if ("pcpPatientId" in slots) {
-    //   patientId = slots.pcpPatientId;
-    // }
-    // if ("bearerToken" in slots) {
-    //   bearerToken = slots.bearerToken;
-    // }
+    var herokuEnv = null;
+    var apiKey = null;
+    var patientId = null;
+    var bearerToken = null;
+
+    if ("herokuEnv" in slots) {
+      herokuEnv = slots.herokuEnv;
+    }
+    if (herokuEnv !== undefined && herokuEnv !== null && herokuEnv != '' && defaultHerokuEnv !== null) {
+      apiKey = apiKeys.defaultHerokuEnv || null;
+    }
+    if
+    if ("pcpPatientId" in slots) {
+      patientId = slots.pcpPatientId;
+    }
+    if ("bearerToken" in slots) {
+      bearerToken = slots.bearerToken;
+    }
     if (patientId === undefined || patientId === null || patientId == '') {
         patientId = defaultPatientId;
     }
     if (bearerToken === undefined || bearerToken === null || bearerToken == '') {
         bearerToken = defaultBearerToken;
     }
-    if (bearerToken == null || patientId == null) {
+    if (bearerToken == null || patientId == null || apiKey == null) {
         callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled', medicineName, dosageTime, intentRequest.currentIntent.slots, intentRequest.currentIntent.name));
     } else {
-        getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, callback);
+        getDosageInformation(intentRequest.sessionAttributes, 'Fulfilled', intentRequest, callback, apiKey, patientId, bearerToken, medicineName, dosageTime);
     }
 
 }
@@ -232,19 +249,21 @@ function checkDosage(intentRequest, callback) {
 // it needs to be cleaned up to provide a meaningful response to the user (one of which would be
 // that he/she is not logged in - others would relate to not being enrolled the program for the
 // medication passed in the the medicineType slot)
-function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest, callback) {
+function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest, callback, herokuEnv, apiKey, patientId, bearerToken, medicineName, dosageTime) {
 
     var responseObject = null;
-    console.log("About to call request method.");
+    let uri = `https://gateway-np.lillyapi.com:8443/${herokuEnv}/virtualClaudia/v3/patient/product/dosage?pcpPatientId=${patientId}&vcProductId=${medicineName}`
+    console.log("About to call request method: " + uri);
+
     var options = {
         method: "GET",
-        uri: `https://gateway-np.lillyapi.com:8443/sim/virtualClaudia/v2/patient/product/dosage?pcpPatientId=1006865&vcProductId=taltz`,
+        uri: uri,
         headers: {
             'Accept': 'application/json',
             'Accept-Charset': 'utf-8',
-            'X-API-Key': 'l7xx2e4f44efe5034a4aa27c31e8495f4a9a',
+            'X-API-Key': apiKey,
             'Requestor': 'VCClient',
-            'Authorization': 'Bearer 00DP00000002vUC!ARIAQJ8ng_x2idhjMMPxLHMbC1XH9nVKp6uVxC6xMN17Sium9ECc.vkWXqkO35zKBU8Hq2XXDtzJp7OqkKB9J8YXjnZgCpyk'
+            'Authorization': 'Bearer ' + bearerToken
         }
     };
 
@@ -256,7 +275,6 @@ function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest
             console.log("In then block 1");
             var nextDosageIndex = parsedBody.payload.nextDosageNumber;
             var next_dosage_date = parsedBody.payload.dosages[nextDosageIndex].dosageTakenDate;
-            //var next_dosage_date = parsedBody.payload.dosageProfiles[0].dosages[0].dosageDate;
             console.log("In then block 2");
             const slots = intentRequest.currentIntent.slots;
             const intentName = intentRequest.currentIntent.name;
