@@ -9,11 +9,13 @@ var apiKeys = {
   'tst': 'l7xxe8e2440d66d34eb4807c1db6f6305990',
   'sim': 'l7xx2e4f44efe5034a4aa27c31e8495f4a9a'
 };
+
 var defaultHerokuEnv = "sim";
 var defaultPatientId = "1008895";
-var defaultBearerToken = "00DP00000002vUC!ARIAQK2yGWVvL1atAKAb7YaKEGiV0VHdajMzZXeXysqXYosA9OXL2MYTvTh.yyotIF_9H6K_oDSGoRBJUcsvdmHooY8iELka";
-//var defaultPatientId = null;
-//var defaultBearerToken = null;
+var defaultBearerToken = "00DP00000002vUC!ARIAQLAmK4GJVdokX2.aZc6xKT3d_5aa3W98lBjDIJNOyECH3Bhr90wrMT.FhjnDRvF.Pyg5JvEglGFYPym3eHnHTeRIlCGt";
+// var defaultHerokuEnv = null;
+// var defaultPatientId = null;
+// var defaultBearerToken = null;
 
 function elicitSlot(sessionAttributes, intentName, slots, slotToElicit, message) {
     return {
@@ -33,35 +35,26 @@ function confirmIntent(sessionAttributes, fulfillmentState, medicineName, dosage
     if (dosageTime) {
         if (dosageTime.toLowerCase() === 'next') {
             if (medicineName.toLowerCase() === 'taltz') {
-                message.content = `${medicineName} should be taken at 5pm`;
+                message.content = `Your next dose of ${medicineName} should be taken tomorrow`;
             }
-            if (medicineName.toLowerCase() === 'krokan') {
-                message.content = `${medicineName} should be taken at 10pm.`;
-            }
-            if (medicineName.toLowerCase() === 'zinetac') {
-                message.content = `${medicineName} should be taken taken at 11pm.`;
+            if (medicineName.toLowerCase() === 'olumiant') {
+                message.content = `Your next dose of ${medicineName} should be taken today.`;
             }
         } else {
             if (medicineName.toLowerCase() === 'taltz') {
-                message.content = `${medicineName} was taken at 5am.`;
+                message.content = `Your last dose of ${medicineName} was taken on Wednesday May 12th.`;
             }
-            if (medicineName.toLowerCase() === 'krokan') {
-                message.content = `${medicineName} was taken at 3am.`;
-            }
-            if (medicineName.toLowerCase() === 'zinetac') {
-                message.content = `${medicineName} was taken at 2am`;
+            if (medicineName.toLowerCase() === 'olumiant') {
+                message.content = `Your last dose of ${medicineName} was taken yesterday.`;
             }
         }
 
     } else {
         if (medicineName.toLowerCase() === 'taltz') {
-            message.content = `${medicineName} should be taken 2 times a day. Were you happy with my assistance.`;
+            message.content = `${medicineName} should be taken every 2 weeks for the first 6 weeks, then every 4 weeks after that. Did I answer your question?`;
         }
-        if (medicineName.toLowerCase() === 'krokan') {
-            message.content = `${medicineName} should be taken 5 times a day. Were you happy with my assistance.`;
-        }
-        if (medicineName.toLowerCase() === 'zinetac') {
-            message.content = `${medicineName} should be taken 1 time a day. Were you happy with my assistance.`;
+        if (medicineName.toLowerCase() === 'olumiant') {
+            message.content = `${medicineName} should be taken once a day. Did I answer your question?`;
         }
     }
     return {
@@ -141,7 +134,7 @@ function buildValidationResult(isValid, violatedSlot, messageContent) {
 }
 
 function validateCheckDosage(medicineType, dosageTime) {
-    const medicineTypes = ['taltz', 'krokan', 'zinetac'];
+    const medicineTypes = ['taltz', 'olumiant'];
     const dosageTimes = ['next', 'last'];
     if (medicineType && medicineTypes.indexOf(medicineType.toLowerCase()) === -1) {
         return buildValidationResult(false, 'medicineType', `I dont have ${medicineType} listed in my medicine section, maybe you are looking for Taltz.`);
@@ -178,12 +171,11 @@ function checkDosage(intentRequest, callback) {
         }
     }
     if (source === 'DialogCodeHook') {
-        // Perform basic validation on the supplied input slots.  Use the elicitSlot dialog action to re-prompt for the first violation detected.
+        // Perform basic validation on the supplied input slots.
+        // Use the elicitSlot dialog action to re-prompt for the first violation detected.
         const validationResult = validateCheckDosage(medicineType, dosageTime);
         if (!validationResult.isValid) {
-            console.log("state check 1");
             slots[`${validationResult.violatedSlot}`] = null;
-
             callback(elicitSlot(intentRequest.sessionAttributes, intentRequest.currentIntent.name, slots, validationResult.violatedSlot, validationResult.message));
             return;
         }
@@ -221,8 +213,8 @@ function checkDosage(intentRequest, callback) {
     if (herokuEnv !== null) {
       apiKey = apiKeys[herokuEnv] || null;
     }
-    if ("pcpPatientId" in slots) {
-      patientId = slots.pcpPatientId;
+    if ("patientId" in slots) {
+      patientId = slots.patientId;
     }
     if ("bearerToken" in slots) {
       bearerToken = slots.bearerToken;
@@ -278,33 +270,32 @@ function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest
     rp(options)
         .then(function(parsedBody) {
           var message = null;
-          console.log("In then block");
-          console.log(parsedBody);
-          console.log("Payload = " + parsedBody.payload);
-          console.log("Dosage profiles = " + parsedBody.payload.dosageProfiles);
+
           // Fetch the dosage profiles and find the currently active profiles
           if (parsedBody.payload.dosageProfiles !== null) {
-            console.log("In if stmt");
             var activeProfile = null;
             for (let profile of parsedBody.payload.dosageProfiles) {
-              console.log("In dosage profile loop");
-              console.log("profile = " + profile);
-              console.log("isActive = " + profile.isActive);
               if (profile.isActive) {
-                console.log("In active profile");
                 var nextDosageIndex = profile.nextDosageNumber;
-                var next_dosage_date = profile.dosages[nextDosageIndex].dosageDate;
-                console.log("nextDosageIndex=" + nextDosageIndex + "next_dosage_date" + next_dosage_date);
-                console.log("In then block 2");
-                const slots = intentRequest.currentIntent.slots;
-                const intentName = intentRequest.currentIntent.name;
-                console.log("Response Date: " + next_dosage_date);
-                // Convert the date to a human format
-                var date = new Date(0);
-                date.setUTCSeconds(next_dosage_date);
-                let formattedDate = dateFormat(date, "dddd, mmmm dS");
-                console.log(formattedDate);
-                message = { contentType: 'PlainText', content: `Your next dosage is scheduled for ${formattedDate}.` };
+
+                // if the dosageTime passed in is "last", then fetch the last recorded dose, otherwise fetch the next dose due
+                if (dosageTime === "last" && nextDosageIndex == 0) {
+                  message = { contentType: 'PlainText', content: `You have not recorded taking ${medicineName} yet.` };
+                }
+                else {
+                  var dosageIndex = nextDosageIndex;
+                  var isWas = "next dose is due ";
+                  if (dosageTime === "last") {
+                    dosageIndex = nextDosageIndex - 1;
+                    isWas = "last dose was taken ";
+                  }
+                  var dosageDate = profile.dosages[dosageIndex].dosageDate;
+                  var date = new Date(0);
+                  date.setUTCSeconds(dosageDate);
+                  // Convert the date to a human-readable format
+                  let formattedDate = dateFormat(date, "dddd, mmmm dS");
+                  message = { contentType: 'PlainText', content: `Your ${isWas} ${formattedDate}.` };
+                }
               }
               break;
             }
@@ -334,17 +325,12 @@ function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest
                 }
             });
         });
-
-    // let end = Date.now() + 5000;
-    // while (Date.now() < end);
-    // console.log("5 second timeout");
 }
 
 function checkFAQIntent(intentRequest, callback) {
     const FAQQuestionVal = intentRequest.currentIntent.slots.FAQQuestionVal;
     const source = intentRequest.invocationSource;
     const outputSessionAttributes = intentRequest.sessionAttributes || {};
-
 
     callback(closeFAQIntent(intentRequest.sessionAttributes, 'Fulfilled', FAQQuestionVal));
 }
