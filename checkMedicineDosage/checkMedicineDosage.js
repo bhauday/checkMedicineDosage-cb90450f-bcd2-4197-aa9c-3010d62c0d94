@@ -17,6 +17,7 @@ var defaultBearerToken = "00DP00000002vUC!ARIAQLAmK4GJVdokX2.aZc6xKT3d_5aa3W98lB
 // var defaultPatientId = null;
 // var defaultBearerToken = null;
 
+// Lex concept - asking the user to provide the value of a slot from the lambda function (as opposed to from Lex)
 function elicitSlot(sessionAttributes, intentName, slots, slotToElicit, message) {
     return {
         sessionAttributes,
@@ -134,15 +135,18 @@ function buildValidationResult(isValid, violatedSlot, messageContent) {
 }
 
 function validateCheckDosage(medicineType, dosageTime) {
+  console.log("In validateCheckDosage")
     const medicineTypes = ['taltz', 'olumiant'];
     const dosageTimes = ['next', 'last'];
-    if (medicineType && medicineTypes.indexOf(medicineType.toLowerCase()) === -1) {
-        return buildValidationResult(false, 'medicineType', `I dont have ${medicineType} listed in my medicine section, maybe you are looking for Taltz.`);
+    if (medicineType === null) {
+      return buildValidationResult(false, 'medicineType', `What medication are you asking about?`);
+    }
+    if (medicineTypes.indexOf(medicineType.toLowerCase()) === -1) {
+        return buildValidationResult(false, 'medicineType', `I dont have ${medicineType} listed as a medication.`);
     }
     if (dosageTime && dosageTimes.indexOf(dosageTime.toLowerCase()) === -1) {
-        return buildValidationResult(false, 'medicineType', `I dont have understand what you are`);
+        return buildValidationResult(false, 'dosageTime', `Please specify whether you want the last or next dosage date.`);
     }
-
     return buildValidationResult(true, null, null);
 }
 
@@ -158,7 +162,7 @@ function validateCheckDosage(medicineType, dosageTime) {
  */
 function checkDosage(intentRequest, callback) {
     const slots = intentRequest.currentIntent.slots;
-    const medicineType = slots.medicineType;
+    var medicineType = slots.medicineType;
     const dosageTime = slots.dosageTime;
 
     const source = intentRequest.invocationSource;
@@ -170,28 +174,24 @@ function checkDosage(intentRequest, callback) {
             callback(close(intentRequest.sessionAttributes, 'Fulfilled', slots.assistanceConfirmation));
         }
     }
+
+    // This is for validation - the first time the lambda function is called
     if (source === 'DialogCodeHook') {
         // Perform basic validation on the supplied input slots.
         // Use the elicitSlot dialog action to re-prompt for the first violation detected.
+        console.log("In DialogCodeHook");
+        if (!medicineType && ("medicineName" in outputSessionAttributes)) {
+          medicineType = outputSessionAttributes.medicineName;
+        }
         const validationResult = validateCheckDosage(medicineType, dosageTime);
         if (!validationResult.isValid) {
             slots[`${validationResult.violatedSlot}`] = null;
             callback(elicitSlot(intentRequest.sessionAttributes, intentRequest.currentIntent.name, slots, validationResult.violatedSlot, validationResult.message));
             return;
         }
-        if (outputSessionAttributes.medicineName && !medicineType) {
-            if (medicineType) {
-                outputSessionAttributes.medicineName = medicineType;
-            }
-            callback(confirmIntent(intentRequest.sessionAttributes, 'Fulfilled', outputSessionAttributes.medicineName, dosageTime, slots, intentRequest.currentIntent.name));
-            return;
-        }
-        if (medicineType) {
-            outputSessionAttributes.medicineName = medicineType;
-        }
-        callback(delegate(outputSessionAttributes, intentRequest.currentIntent.slots));
-        return;
+        outputSessionAttributes.medicineName = medicineType;
     }
+
     var medicineName = medicineType || outputSessionAttributes.medicineName;
 
     // We have the medicineName and dosageTime, so now we can provide the proper response.
@@ -249,6 +249,10 @@ function checkDosage(intentRequest, callback) {
 // that he/she is not logged in - others would relate to not being enrolled the program for the
 // medication passed in the the medicineType slot)
 function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest, callback, herokuEnv, apiKey, patientId, bearerToken, medicineName, dosageTime) {
+
+  if (medicineName === null && ("medicineName" in sessionAttributes)) {
+    medicineName = sessionAttributes.medicineName;
+  }
 
     var responseObject = null;
     let uri = `https://gateway-np.lillyapi.com:8443/${herokuEnv}/virtualClaudia/v3/patient/product/dosage?pcpPatientId=${patientId}&vcProductId=${medicineName}`
