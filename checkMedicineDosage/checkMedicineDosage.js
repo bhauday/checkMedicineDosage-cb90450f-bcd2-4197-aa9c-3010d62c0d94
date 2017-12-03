@@ -2,6 +2,7 @@
 
 var request = require("request");
 var rp = require('request-promise');
+var dateFormat = require('dateformat');
 
 var apiKeys = {
   'dev': 'l7xxfff2da3a70a34a60bb32d2bcf2fd0791',
@@ -10,7 +11,7 @@ var apiKeys = {
 };
 var defaultHerokuEnv = "sim";
 var defaultPatientId = "1008895";
-var defaultBearerToken = "00DP00000002vUC!ARIAQGpa8_MNjLkruWhjuuA4gVEFHyNwsXZYjcVXP7vSWpaiuv0aowBWha9K5Ye8Kaf.0EppIlQhGlVl_paMz2o4tTKDO5H_";
+var defaultBearerToken = "00DP00000002vUC!ARIAQK2yGWVvL1atAKAb7YaKEGiV0VHdajMzZXeXysqXYosA9OXL2MYTvTh.yyotIF_9H6K_oDSGoRBJUcsvdmHooY8iELka";
 //var defaultPatientId = null;
 //var defaultBearerToken = null;
 
@@ -270,25 +271,55 @@ function getDosageInformation(sessionAttributes, fulfillmentState, intentRequest
             'X-API-Key': apiKey,
             'Requestor': 'VCClient',
             'Authorization': 'Bearer ' + bearerToken
-        }
+        },
+        json: true
     };
 
     rp(options)
         .then(function(parsedBody) {
+          var message = null;
           console.log("In then block");
           console.log(parsedBody);
-            //var data = JSON.parse(response.body);
-            console.log("In then block 1");
-            var nextDosageIndex = parsedBody.payload.nextDosageNumber;
-            var next_dosage_date = parsedBody.payload.dosages[nextDosageIndex].dosageTakenDate;
-            console.log("In then block 2");
-            const slots = intentRequest.currentIntent.slots;
-            const intentName = intentRequest.currentIntent.name;
-            console.log("Response Date: " + next_dosage_date);
-            // Convert the date to a human format
-            var date = new Date(0);
-            date.setUTCSeconds(next_dosage_date);
-            message = { contentType: 'PlainText', content: `Your next dosage is scheduled for ${date}.` };
+          console.log("Payload = " + parsedBody.payload);
+          console.log("Dosage profiles = " + parsedBody.payload.dosageProfiles);
+          // Fetch the dosage profiles and find the currently active profiles
+          if (parsedBody.payload.dosageProfiles !== null) {
+            console.log("In if stmt");
+            var activeProfile = null;
+            for (let profile of parsedBody.payload.dosageProfiles) {
+              console.log("In dosage profile loop");
+              console.log("profile = " + profile);
+              console.log("isActive = " + profile.isActive);
+              if (profile.isActive) {
+                console.log("In active profile");
+                var nextDosageIndex = profile.nextDosageNumber;
+                var next_dosage_date = profile.dosages[nextDosageIndex].dosageDate;
+                console.log("nextDosageIndex=" + nextDosageIndex + "next_dosage_date" + next_dosage_date);
+                console.log("In then block 2");
+                const slots = intentRequest.currentIntent.slots;
+                const intentName = intentRequest.currentIntent.name;
+                console.log("Response Date: " + next_dosage_date);
+                // Convert the date to a human format
+                var date = new Date(0);
+                date.setUTCSeconds(next_dosage_date);
+                let formattedDate = dateFormat(date, "dddd, mmmm dS");
+                console.log(formattedDate);
+                message = { contentType: 'PlainText', content: `Your next dosage is scheduled for ${formattedDate}.` };
+              }
+              break;
+            }
+          }
+          if (message == null) {
+            message = { contentType: 'PlainText', content: `No dosage information could be found for ${medicineName} in your profile.` };
+          }
+          callback({
+              sessionAttributes,
+              dialogAction: {
+                  type: 'Close',
+                  fulfillmentState,
+                  message
+              }
+          });
         })
         .catch(function(err) {
             var message = { contentType: 'PlainText', content: `There was a problem accessing LillyPlus services to get your dosage information.` };
