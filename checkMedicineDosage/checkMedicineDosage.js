@@ -365,7 +365,7 @@ exports.handler = (event, context, callback) => {
     try {
         // By default, treat the user request as coming from the America/New_York time zone.
         process.env.TZ = 'America/New_York';
-        console.log(`event.bot.name=${event.bot.name}`);
+//        console.log(`event.bot.name=${event.bot.name}`);
 
         /**
          * Uncomment this if statement and populate with your Lex bot name and / or version as
